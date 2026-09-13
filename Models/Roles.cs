@@ -26,5 +26,7 @@ namespace TaskManagementSystem.Models
 
         [JsonIgnore]
         public IEnumerable<User>? Users { get; set; }
+        [JsonIgnore]
+        public IEnumerable<RolePermissions>? Permissions;
     }
 }

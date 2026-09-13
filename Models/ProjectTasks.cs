@@ -4,27 +4,29 @@ using System.Text.Json.Serialization;
 
 namespace TaskManagementSystem.Models
 {
-
-    [Table("departments")]
-    public class Departments
+    [Table("project_tasks")]
+    public class ProjectTasks
     {
+        [Key]
         [Column("id")]
         public Guid Id { get; set; }
 
-        [Column("department_name")]
+        [Column("project_id")]
         [Required]
-        [StringLength(50, MinimumLength = 2, ErrorMessage = "Department name should be between 2 to 50")]
-        public string DepartmentName { get; set; } = String.Empty;
+        public Guid ProjectId { get; set; }
+
+        [Column("title")]
+        [Required]
+        [StringLength(100, MinimumLength = 10, ErrorMessage = "Task Title should be between 10 to 100 characters")]
+        public string Title { get; set; } = String.Empty;
 
         [Column("description")]
         [Required]
-        [StringLength(200, MinimumLength = 10, ErrorMessage = "Department Descripition should be between 10 to 200 characters")]
         public string Description { get; set; } = String.Empty;
 
-
-        [Column("is_active")]
+        [Column("assign_to")]
         [Required]
-        public bool IsActive { get; set; } = true;
+        public Guid AssignTo { get; set; }
 
         [Column("created_by")]
         [Required]
@@ -34,6 +36,10 @@ namespace TaskManagementSystem.Models
         [Required]
         public Guid UpdatedBy { get; set; }
 
+        [Column("task_status")]
+        [Required]
+        public int StatusId { get; set; }
+
         [Column("created_at")]
         [Required]
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
@@ -42,13 +48,13 @@ namespace TaskManagementSystem.Models
         [Required]
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        [Column("deactivated_at")]
-        public DateTime? DeactivatedAt { get; set; } = null;
+        [JsonIgnore]
+        public User? AssignUser { get; set; }
 
         [JsonIgnore]
-        public IEnumerable<UserDepartments>? UserDepartments { get; set; }
-
+        public Projects? Project {  get; set; }
         [JsonIgnore]
-        public IEnumerable<Projects>? Projects { get; set; }
+        public TaskDbStatus? Status { get; set; }
+
     }
 }

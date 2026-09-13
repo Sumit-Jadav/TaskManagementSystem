@@ -8,7 +8,7 @@ namespace TaskManagementSystem.Models
     public class User
     {
         [Column("id")]
-        public Guid UserId { get; set; }
+        public Guid Id { get; set; }
 
         [Column("email")]
         [Required(ErrorMessage = "Email is Required")]
@@ -27,7 +27,15 @@ namespace TaskManagementSystem.Models
         [Column("is_active")]
         [Required]
         public bool IsActive { get; set; } = true;
-        
+
+        [Column("created_by")]
+        [Required]
+        public Guid CreatedBy { get; set; }
+
+        [Column("updated_by")]
+        [Required]
+        public Guid UpdatedBy { get; set; }
+
         [Column("created_at")]
         [Required]
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
@@ -43,5 +51,10 @@ namespace TaskManagementSystem.Models
         public Roles? Role { get; set; }
         [JsonIgnore]
         public UserProfile? UserProfile { get; set; }
+
+        [JsonIgnore]
+        public IEnumerable<UserDepartments>? UserDepartments { get; set; }
+        [JsonIgnore]
+        public IEnumerable<ProjectTasks>? ProjectTasks { get; set; }
     }
 }

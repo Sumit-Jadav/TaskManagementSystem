@@ -11,7 +11,7 @@ namespace TaskManagementSystem
 
 
             builder.Services.AddControllersWithViews();
-            builder.Services.AddDbContext<TaskManagementContext>(options => options.UseSqlServer(builder.Configuration["TaskManagement"]));
+            builder.Services.AddDbContext<TaskManagementContext>(options => options.UseSqlServer(builder.Configuration["TaskManagementLocal"]));
 
             var app = builder.Build();
 

@@ -1,0 +1,97 @@
+GO
+CREATE PROCEDURE dbo.GetProjectsOfUser
+@search NVARCHAR(100) = NULL,
+@orderBy NVARCHAR(100) = NULL,
+@order NVARCHAR(10) = NULL,
+@limit INT = 5,
+@offsets BIGINT = 0,
+@userId UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    DECLARE @searchVal NVARCHAR(100)
+    SET @searchVal = ISNULL(TRIM(@search) , '')
+    DECLARE @tempSearch NVARCHAR(100) = CONCAT('%',@searchVal,'%')
+    select COUNT(*) 
+    FROM projects p 
+    JOIN departments d on p.department_id = d.id 
+    WHERE (@search IS NULL OR p.project_name LIKE @tempSearch OR p.[description] LIKE @tempSearch OR department_name LIKE @tempSearch)
+    AND (@userId IS NULL OR EXISTS (
+        select 1 from department_admins da where da.[user_id] = @userId
+    ));
+
+    select
+    p.id,
+    p.[description],
+    p.created_at,
+    p.created_by,
+    p.deleted_at,
+    p.department_id,
+    p.end_date,
+    p.expected_end_date,
+    p.is_deleted,
+    p.project_name,
+    p.start_date,
+    p.updated_at,
+    p.updated_by,
+    d.id,
+    d.department_name,
+    d.created_at,
+    d.created_by,
+    d.deactivated_at,
+    d.[description],
+    d.is_active,
+    d.updated_at,
+    d.updated_by
+    FROM projects p 
+    JOIN departments d on p.department_id = d.id 
+    WHERE (@search IS NULL OR p.project_name LIKE @tempSearch OR p.[description] LIKE @tempSearch OR department_name LIKE @tempSearch) AND (@userId is NULL OR EXISTS(
+        select 1 from department_admins where [user_id] = @userId
+    ))
+    ORDER BY
+        CASE
+            WHEN @orderBy = 'name'
+            AND  @order = 'asc'
+            THEN p.project_name END ASC,
+        CASE 
+            WHEN @orderBy = 'name'
+            AND @order = 'desc'
+            THEN p.project_name END DESC,
+        CASE
+            WHEN @orderBy = 'start_date'
+            AND @order = 'asc'
+            THEN p.start_date END ASC,
+        CASE
+            WHEN @orderBy = 'start_date'
+            AND @order = 'desc'
+            THEN p.start_date END DESC,
+        CASE
+            WHEN @orderBy = 'end_date'
+            AND @order = 'asc'
+            THEN p.end_date END ASC,
+        CASE
+            WHEN @orderBy = 'end_date'
+            AND @order = 'desc'
+            THEN p.end_date END DESC,
+        CASE
+            WHEN @orderBy = 'expected_end'
+            AND @order = 'asc'
+            THEN p.expected_end_date END ASC,
+        CASE
+            WHEN @orderBy = 'expected_end'
+            AND @order = 'desc'
+            THEN p.expected_end_date END DESC,
+        CASE
+            WHEN @orderBy = 'creation'
+            AND @order = 'asc'
+            THEN p.created_at END ASC,
+        CASE
+            WHEN @orderBy = 'creation'
+            AND @order = 'desc'
+            THEN p.created_at END DESC,
+        CASE
+            WHEN @orderBy IS NULL 
+            OR @order IS  NULL
+            THEN p.created_at END ASC
+    OFFSET @offsets ROWS FETCH NEXT @limit ROWS ONLY;
+    
+END

@@ -1,5 +1,6 @@
 GO
-CREATE PROCEDURE dbo.GetProjectTasksPaginated
+
+CREATE OR ALTER PROCEDURE dbo.GetProjectTasksPaginated
     @search NVARCHAR(100) = NULL,
     @orderBy NVARCHAR(100) = NULL,
     @order NVARCHAR(10) = NULL,
@@ -10,53 +11,233 @@ CREATE PROCEDURE dbo.GetProjectTasksPaginated
     @assignTo UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
-    DECLARE @searchVal NVARCHAR(100) = ISNULL(TRIM(@search) , '')
-    DECLARE @tempSearch NVARCHAR(102) = CONCAT('%',@search,'%')
-    select COUNT(*) 
-    FROM project_tasks t 
-    JOIN task_status ts on t.task_status = ts.id 
-    JOIN users creation on t.created_by = creation.id
-    JOIN user_profiles creation_prof on creation.id = creation_prof.[user_id] 
-    LEFT JOIN users assign on assign.id = t.assign_to
-    JOIN user_profiles assign_profile on assign.id = assign_profile.[user_id]
-    LEFT JOIN users assign_by on assign_by.id = t.assign_by
-    JOIN user_profiles assignBy_profile on assign_by.id = assignBy_profile.[user_id]
-    WHERE (@search IS NULL OR t.title LIKE @tempSearch OR t.[description] LIKE @tempSearch OR ts.[status] LIKE @tempSearch) AND (@statusId IS NULL OR t.task_status = @statusId) AND (@assignTo IS NULL OR t.assign_to = @assignTo);
+    SET NOCOUNT ON;
+
+    DECLARE @searchVal NVARCHAR(100) = NULLIF(TRIM(@search), '');
+    DECLARE @tempSearch NVARCHAR(102) =
+        CASE
+            WHEN @searchVal IS NULL THEN NULL
+            ELSE CONCAT('%', @searchVal, '%')
+        END;
+
+    /* ==========================================
+       1. TOTAL COUNT
+       ========================================== */
+
+    SELECT COUNT(*) AS TotalCount
+    FROM project_tasks t
+
+    INNER JOIN task_status ts
+        ON t.task_status = ts.id
+
+    INNER JOIN users creation
+        ON t.created_by = creation.id
+
+    INNER JOIN user_profiles creation_prof
+        ON creation.id = creation_prof.user_id
+
+    LEFT JOIN users assign
+        ON assign.id = t.assign_to
+
+    LEFT JOIN user_profiles assign_profile
+        ON assign.id = assign_profile.user_id
+
+    LEFT JOIN users assign_by
+        ON assign_by.id = t.assign_by
+
+    LEFT JOIN user_profiles assignBy_profile
+        ON assign_by.id = assignBy_profile.user_id
+
+    WHERE
+        (
+            @searchVal IS NULL
+            OR t.title LIKE @tempSearch
+            OR t.[description] LIKE @tempSearch
+            OR ts.[status] LIKE @tempSearch
+        )
+        AND (
+            @projectId IS NULL
+            OR t.project_id = @projectId
+        )
+        AND (
+            @statusId IS NULL
+            OR t.task_status = @statusId
+        )
+        AND (
+            @assignTo IS NULL
+            OR t.assign_to = @assignTo
+        );
+
+
+    /* ==========================================
+       2. PAGINATED TASKS
+       ========================================== */
 
     SELECT
-        t.*,
-        ts.*,
-        creation.*,
-        creation_prof.*,
-        assign.*,
-        assign_profile.*,
-        assign_by.*,
-        assignBy_profile.*
-    FROM project_tasks t 
-    JOIN task_status ts on t.task_status = ts.id 
-    JOIN users creation on t.created_by = creation.id
-    JOIN user_profiles creation_prof on creation.id = creation_prof.[user_id] 
-    LEFT JOIN users assign on assign.id = t.assign_to
-    JOIN user_profiles assign_profile on assign.id = assign_profile.[user_id]
-    LEFT JOIN users assign_by on assign_by.id = t.assign_by
-    JOIN user_profiles assignBy_profile on assign_by.id = assignBy_profile.[user_id]   
-    WHERE (@search IS NULL OR t.title LIKE @tempSearch OR t.[description] LIKE @tempSearch OR ts.[status] LIKE @tempSearch ) 
-    AND (@statusId IS NULL OR t.task_status = @statusId)
+        -- Task
+        t.id                AS TaskId,
+        t.project_id        AS ProjectId,
+        t.title             AS Title,
+        t.[description]     AS [Description],
+        t.assign_to         AS AssignTo,
+        t.assign_date       AS AssignDate,
+        t.completion_date   AS CompletionDate,
+        t.created_by        AS CreatedBy,
+        t.updated_by        AS UpdatedBy,
+        t.task_status       AS StatusId,
+        t.task_priority     AS Priority,
+        t.assign_by         AS AssignBy,
+        t.created_at        AS CreatedAt,
+        t.updated_at        AS UpdatedAt,
+
+        -- Status
+        ts.id               AS Status_Id,
+        ts.[status]         AS StatusName,
+        ts.[description]    AS StatusDescription,
+
+        -- Created By User
+        creation.id        AS CreatedByUserId,
+        creation.email     AS CreatedByEmail,
+        creation.is_active AS CreatedByIsActive,
+
+        -- Created By Profile
+        creation_prof.id         AS CreatedByProfileId,
+        creation_prof.first_name AS CreatedByFirstName,
+        creation_prof.last_name  AS CreatedByLastName,
+
+        -- Assigned To User
+        assign.id        AS AssignToUserId,
+        assign.email     AS AssignToEmail,
+        assign.is_active AS AssignToIsActive,
+
+        -- Assigned To Profile
+        assign_profile.id         AS AssignToProfileId,
+        assign_profile.first_name AS AssignToFirstName,
+        assign_profile.last_name  AS AssignToLastName,
+
+        -- Assigned By User
+        assign_by.id        AS AssignByUserId,
+        assign_by.email     AS AssignByEmail,
+        assign_by.is_active AS AssignByIsActive,
+
+        -- Assigned By Profile
+        assignBy_profile.id         AS AssignByProfileId,
+        assignBy_profile.first_name AS AssignByFirstName,
+        assignBy_profile.last_name  AS AssignByLastName
+
+    FROM project_tasks t
+
+    INNER JOIN task_status ts
+        ON t.task_status = ts.id
+
+    /* Created By */
+    INNER JOIN users creation
+        ON t.created_by = creation.id
+
+    INNER JOIN user_profiles creation_prof
+        ON creation.id = creation_prof.user_id
+
+    /* Assigned To */
+    LEFT JOIN users assign
+        ON assign.id = t.assign_to
+
+    LEFT JOIN user_profiles assign_profile
+        ON assign.id = assign_profile.user_id
+
+    /* Assigned By */
+    LEFT JOIN users assign_by
+        ON assign_by.id = t.assign_by
+
+    LEFT JOIN user_profiles assignBy_profile
+        ON assign_by.id = assignBy_profile.user_id
+
+    WHERE
+        (
+            @searchVal IS NULL
+            OR t.title LIKE @tempSearch
+            OR t.[description] LIKE @tempSearch
+            OR ts.[status] LIKE @tempSearch
+        )
+        AND (
+            @projectId IS NULL
+            OR t.project_id = @projectId
+        )
+        AND (
+            @statusId IS NULL
+            OR t.task_status = @statusId
+        )
+        AND (
+            @assignTo IS NULL
+            OR t.assign_to = @assignTo
+        )
+
     ORDER BY
-    CASE WHEN @orderBy = 'title' AND @order = 'asc' THEN t.title END ASC,
-    CASE WHEN @orderBy = 'title' AND @order = 'desc' THEN t.title END DESC,
-    CASE WHEN @orderBy = 'assign' AND @order = 'asc' THEN assign.email END ASC,
-    CASE WHEN @orderBy = 'assign' AND @order = 'desc' THEN assign.email END DESC,
-    CASE WHEN @orderBy = 'createdBy' ANd @order = 'asc' THEN creation.email END ASC,
-    CASE WHEN @orderBy = 'createdBy' ANd @order = 'desc' THEN creation.email END DESC,
-    CASE WHEN @orderBy = 'assignDate' AND @order = 'asc' THEN t.assign_date END ASC,
-    CASE WHEN @orderBy = 'completionDate' AND @order = 'asc' THEN t.completion_date END ASC,
-    CASE WHEN @orderBy = 'completionDate' AND @order = 'desc' THEN t.completion_date END DESC
-    OFFSET @offsets ROWS FETCH NEXT @limit ROWS ONLY
+
+        CASE
+            WHEN @orderBy = 'title'
+             AND LOWER(@order) = 'asc'
+            THEN t.title
+        END ASC,
+
+        CASE
+            WHEN @orderBy = 'title'
+             AND LOWER(@order) = 'desc'
+            THEN t.title
+        END DESC,
+
+        CASE
+            WHEN @orderBy = 'assign'
+             AND LOWER(@order) = 'asc'
+            THEN assign.email
+        END ASC,
+
+        CASE
+            WHEN @orderBy = 'assign'
+             AND LOWER(@order) = 'desc'
+            THEN assign.email
+        END DESC,
+
+        CASE
+            WHEN @orderBy = 'createdBy'
+             AND LOWER(@order) = 'asc'
+            THEN creation.email
+        END ASC,
+
+        CASE
+            WHEN @orderBy = 'createdBy'
+             AND LOWER(@order) = 'desc'
+            THEN creation.email
+        END DESC,
+
+        CASE
+            WHEN @orderBy = 'assignDate'
+             AND LOWER(@order) = 'asc'
+            THEN t.assign_date
+        END ASC,
+
+        CASE
+            WHEN @orderBy = 'assignDate'
+             AND LOWER(@order) = 'desc'
+            THEN t.assign_date
+        END DESC,
+
+        CASE
+            WHEN @orderBy = 'completionDate'
+             AND LOWER(@order) = 'asc'
+            THEN t.completion_date
+        END ASC,
+
+        CASE
+            WHEN @orderBy = 'completionDate'
+             AND LOWER(@order) = 'desc'
+            THEN t.completion_date
+        END DESC,
+
+        -- Always have deterministic pagination
+        t.id
+
+    OFFSET @offsets ROWS
+    FETCH NEXT @limit ROWS ONLY;
+
 END
 GO
-
-
-drop PROCEDURE if EXISTS dbo.GetProjectTasksPaginated;
-
-EXEC dbo.GetProjectTasksPaginated null , null , null , 5 , 0 , null , 1, null;
